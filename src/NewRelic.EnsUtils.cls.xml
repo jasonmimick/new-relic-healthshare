@@ -13,55 +13,42 @@ Set of utilities to extract metrics out of Ensemble to be sent to New Relic
 </Parameter>
 
 <Method name="MessageCount">
+<Description>
+Returns the number of messages and errors organized by SoureConfigName
+since "fromTimestamp" which should be of the form: 2014-06-04 13:46:07
+</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>debug=1,ssl=..#SSLCONFIG</FormalSpec>
+<FormalSpec>fromTimestamp</FormalSpec>
 <Implementation><![CDATA[
-	// for every 4 hours for each day from StartDay to Now
-	// count the number of messages processed
-	
-	set data=##class(%ListOfObjects).%New()
-	set labels = ##class(%ListOfDataTypes).%New()
-	set counts = ##class(%ListOfDataTypes).%New()
-	set now=+$h
-	Set StartDay=+$h-DaysBack
-	set slices = (now-StartDay)
-	set from=StartDay,to=from+1
-	
-	for i=1:1:slices {
-		
-		set rs=##class(%ResultSet).%New("%DynamicQuery:SQL")
-		if ( ErrorsOnly ) {
-			set sc=rs.Prepare("select COUNT(DISTINCT SessionId) from Ens.MessageHeader where (TimeCreated BETWEEN ? and ?) AND IsError = 1")
-		} else {
-			set sc=rs.Prepare("select COUNT(DISTINCT SessionId) from Ens.MessageHeader where TimeCreated BETWEEN ? and ?")
-			
-		}
-		set dfrom=$zd(from,3),dto=$zd(to,3)
-		set sc=rs.Execute(dfrom,dto)
-		do rs.Next()
-		//write dfrom," -> ",dto," mcount=",rs.Get("Aggregate_1"),!
-		//set dataPoint = ##class(%ZEN.proxyObject).%New()
-		//set dataPoint.Date = dfrom
-		do labels.Insert(dfrom)
-		
-		//set dataPoint.Count = rs.Get("Aggregate_1")
-		do counts.Insert( rs.Get("Aggregate_1") )
-		//do data.Insert(dataPoint)
-		set from=to,to=to+1
-		//do rs.Close()
-	}
 	set result = ##class(%ZEN.proxyObject).%New()
-	set result.labels = labels
-	set result.counts = counts
-	set stream=##class(%Stream.TmpCharacter).%New()
-	do ##class(%ZEN.Auxiliary.jsonArrayProvider).%WriteJSONStreamFromObject(stream,result)
-	do stream.Rewind()
-	set json=""
-    while ( 'stream.AtEnd ) { set json=json_stream.Read() }
-    return json
-
-
-
+	set msgData=##class(%ListOfObjects).%New()
+	set result.timestamp = fromTimestamp
+	set result.namespace = $namespace
+	set rs=##class(%ResultSet).%New("%DynamicQuery:SQL")
+	set sc=rs.Prepare("select DISTINCT SessionId from Ens.MessageHeader where TimeCreated > ? ")		
+	set sc=rs.Execute(fromTimestamp)
+	while ( rs.Next() ) {
+		set header = ##class(Ens.MessageHeader).%OpenId( rs.Get("SessionId") )
+		set name = header.SourceConfigName
+		set count = $i(data( name, "message_count" ))
+		set data( name, "message_count" ) = count
+		if ( header.IsError ) {
+			set count=$i(data( name, "errors" ))
+			set data( name, "errors" ) = count
+		} 
+	}
+		
+	set name=$order( data("") )
+	while ( name '= "" ) {
+		set md = ##class(%ZEN.proxyObject).%New()
+		set md.SourceConfigName = name
+		set md.MessageCount = data(name,"message_count")
+		set md.ErrorCount = $get(data(name,"error_count"),0)
+		do msgData.Insert(md)
+		set name=$order( data(name) )
+	}
+	set result.MessageCounts = msgData
+	return result
 ]]></Implementation>
 </Method>
 </Class>

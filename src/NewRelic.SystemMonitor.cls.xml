@@ -65,6 +65,39 @@ Returns an object loaded with current system stats</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="GetEnsStats">
+<Description>
+Returns an object loaded with ensemble message stats</Description>
+<ReturnType>%RegisteredObject</ReturnType>
+<Implementation><![CDATA[
+
+	// by default - just get status since today--
+	set ensStats = ##class(NewRelic.EnsUtils).MessageCount($zd(+$H,3))
+	set stats = ##class(%ZEN.proxyObject).%New()
+	for i=1:1:ensStats.MessageCounts.Count() {
+		set mc = ensStats.MessageCounts.GetAt(i)
+		
+		set metric = "Component/MessageCounts/"_mc.SourceConfigName_"/"
+		set $property(stats,metric_"MessageCount[count]")=mc.MessageCount
+		set $property(stats,metric_"ErrorCount[count]")=mc.ErrorCount
+
+		
+	}
+	set component = ##class(%ZEN.proxyObject).%New()
+	set component."name" = "Ensemble Message Counts"
+	/// The last dot-piece of the "guid" will show up on the web
+	/// as the "Plug-In"
+	/// We should map each instance of a client using this monitoring
+	/// so some unique name -
+	/// Then we'll have default "component" name's for a namespace/production
+	set component."guid" = "intersystems.cache.AMCEIncFooTheBar"
+	set component."duration" = 60
+	set component."metrics" = stats
+
+	return component
+]]></Implementation>
+</Method>
+
 <Method name="PostMetrics">
 <ClassMethod>1</ClassMethod>
 <FormalSpec>debug=1,ssl=..#SSLCONFIG</FormalSpec>
@@ -80,7 +113,7 @@ Returns an object loaded with current system stats</Description>
 	set $namespace = currNS
 	set me=..%New()
 	set stats = me.GetStats()
-	
+	set ensStats = me.GetEnsStats()	
 	set report = ##class(%ZEN.proxyObject).%New()
 	set agent = ##class(%ZEN.proxyObject).%New()
 	set agent.host = "host.caché.com"	// This would be the real hostname?
@@ -89,6 +122,7 @@ Returns an object loaded with current system stats</Description>
 	set report."agent" = agent
 	set report."components" = ##class(%ListOfObjects).%New()
 	do report."components".Insert(stats)
+	do report."components".Insert(ensStats)
 	set stream = ##class(%Stream.TmpBinary).%New()
 	set sc=##class(%ZEN.Auxiliary.jsonProvider).%WriteJSONStreamFromObject(stream,report,,,1,"aeloqtw")
 	do:debug stream.OutputToDevice()
