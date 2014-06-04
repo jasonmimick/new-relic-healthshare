@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="NewRelic.Base">
+<Description>
+Abstract base class holding common parameters to all the classes in this package.
+</Description>
+<Super>%RegisteredObject</Super>
+<TimeCreated>63341,52785.946298</TimeCreated>
+<Abstract>1</Abstract>
+
+<Parameter name="VERSION">
+<Type>%String</Type>
+<Default>0.0.1</Default>
+</Parameter>
+
+
+</Class>
+</Export>

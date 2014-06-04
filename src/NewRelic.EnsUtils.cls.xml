@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="NewRelic.EnsUtils">
+<Description>
+Set of utilities to extract metrics out of Ensemble to be sent to New Relic
+</Description>
+<Super>NewRelic.Base</Super>
+<TimeCreated>63341,52785.946298</TimeCreated>
+
+<Parameter name="VERSION">
+<Type>%String</Type>
+<Default>0.0.1</Default>
+</Parameter>
+
+<Method name="MessageCount">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>debug=1,ssl=..#SSLCONFIG</FormalSpec>
+<Implementation><![CDATA[
+	// for every 4 hours for each day from StartDay to Now
+	// count the number of messages processed
+	
+	set data=##class(%ListOfObjects).%New()
+	set labels = ##class(%ListOfDataTypes).%New()
+	set counts = ##class(%ListOfDataTypes).%New()
+	set now=+$h
+	Set StartDay=+$h-DaysBack
+	set slices = (now-StartDay)
+	set from=StartDay,to=from+1
+	
+	for i=1:1:slices {
+		
+		set rs=##class(%ResultSet).%New("%DynamicQuery:SQL")
+		if ( ErrorsOnly ) {
+			set sc=rs.Prepare("select COUNT(DISTINCT SessionId) from Ens.MessageHeader where (TimeCreated BETWEEN ? and ?) AND IsError = 1")
+		} else {
+			set sc=rs.Prepare("select COUNT(DISTINCT SessionId) from Ens.MessageHeader where TimeCreated BETWEEN ? and ?")
+			
+		}
+		set dfrom=$zd(from,3),dto=$zd(to,3)
+		set sc=rs.Execute(dfrom,dto)
+		do rs.Next()
+		//write dfrom," -> ",dto," mcount=",rs.Get("Aggregate_1"),!
+		//set dataPoint = ##class(%ZEN.proxyObject).%New()
+		//set dataPoint.Date = dfrom
+		do labels.Insert(dfrom)
+		
+		//set dataPoint.Count = rs.Get("Aggregate_1")
+		do counts.Insert( rs.Get("Aggregate_1") )
+		//do data.Insert(dataPoint)
+		set from=to,to=to+1
+		//do rs.Close()
+	}
+	set result = ##class(%ZEN.proxyObject).%New()
+	set result.labels = labels
+	set result.counts = counts
+	set stream=##class(%Stream.TmpCharacter).%New()
+	do ##class(%ZEN.Auxiliary.jsonArrayProvider).%WriteJSONStreamFromObject(stream,result)
+	do stream.Rewind()
+	set json=""
+    while ( 'stream.AtEnd ) { set json=json_stream.Read() }
+    return json
+
+
+
+]]></Implementation>
+</Method>
+</Class>
+</Export>

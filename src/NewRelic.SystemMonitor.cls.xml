@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="NewRelic.SystemMonitor">
+<Description>
+New Relic plug-in to send system metris on how Caché is performing</Description>
+<Super>NewRelic.Base</Super>
+<TimeCreated>63341,52785.946298</TimeCreated>
+
+<Parameter name="APIKEY">
+<Type>%String</Type>
+<Default>83c249d59ef9bc9c05b7caa84543c4ac0d6b61b9</Default>
+</Parameter>
+
+<UDLText name="T">
+<Content><![CDATA[
+// "api.key.here";
+
+]]></Content>
+</UDLText>
+
+<Parameter name="NEWRELICENDPOINT">
+<Type>%String</Type>
+<Default>https://platform-api.newrelic.com/platform/v1/metrics</Default>
+</Parameter>
+
+<Parameter name="SSLCONFIG">
+<Type>%String</Type>
+<Default>NewRelicClient</Default>
+</Parameter>
+
+<Method name="GetStats">
+<Description>
+Returns an object loaded with current system stats</Description>
+<ReturnType>%RegisteredObject</ReturnType>
+<Implementation><![CDATA[
+	set monitor = ##class(%Monitor.System.SystemMetrics).%New()
+	try {
+		$$$THROWONERROR(sc, monitor.Initialize() )
+		$$$THROWONERROR(sc, monitor.GetSample() )
+	} catch error  {
+		
+		write error.DisplayString()
+	}
+	set stats = ##class(%ZEN.proxyObject).%New()
+	set monDef = ##class(%Library.CompiledClass).%OpenId(monitor.%ClassName(1))
+	for i=1:1:monDef.Properties.Count() {
+		set prop = monDef.Properties.GetAt(i)
+		continue:(prop.Name = "Data" ) 
+		continue:(prop.Name = "%%OID" )
+		set statName = "Component/System/"_prop.Name_"[value]"
+		set $property(stats,statName)=$property(monitor,prop.Name)
+	}
+	set component = ##class(%ZEN.proxyObject).%New()
+	set component."name" = "General Hospital PRODUCTION"
+	/// The last dot-piece of the "guid" will show up on the web
+	/// as the "Plug-In"
+	/// We should map each instance of a client using this monitoring
+	/// so some unique name -
+	/// Then we'll have default "component" name's for a namespace/production
+	set component."guid" = "intersystems.cache.AMCEIncFooTheBar"
+	set component."duration" = 60
+	set component."metrics" = stats
+
+	return component
+]]></Implementation>
+</Method>
+
+<Method name="PostMetrics">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>debug=1,ssl=..#SSLCONFIG</FormalSpec>
+<Implementation><![CDATA[
+	set currNS = $namespace
+	new $namespace
+	set $namespace = "%SYS"
+	set sslExists = ##class(Security.SSLConfigs).Exists(ssl) 
+	if ( 'sslExists ) {
+		
+		$$$THROWONERROR(sc, ##class(Security.SSLConfigs).Create(ssl) )
+	}
+	set $namespace = currNS
+	set me=..%New()
+	set stats = me.GetStats()
+	
+	set report = ##class(%ZEN.proxyObject).%New()
+	set agent = ##class(%ZEN.proxyObject).%New()
+	set agent.host = "host.caché.com"	// This would be the real hostname?
+	set agent.pid = $system.SYS.ProcessID()
+	set agent.version = ..#VERSION
+	set report."agent" = agent
+	set report."components" = ##class(%ListOfObjects).%New()
+	do report."components".Insert(stats)
+	set stream = ##class(%Stream.TmpBinary).%New()
+	set sc=##class(%ZEN.Auxiliary.jsonProvider).%WriteJSONStreamFromObject(stream,report,,,1,"aeloqtw")
+	do:debug stream.OutputToDevice()
+	
+	set request = ##class(%Net.HttpRequest).%New()
+	set endpoint("port")=80
+	do ##class(%Net.URLParser).Parse(..#NEWRELICENDPOINT,.endpoint)
+	if ( debug ) { zw endpoint }
+	set request.Server=endpoint("host")
+	set request.Port=endpoint("port")
+	if ( endpoint("scheme")="https" ) {
+		set request.SSLCheckServerIdentity = 0
+		set request.SSLConfiguration = ssl
+		set request.Https=1
+		set request.Port=443
+	}
+	do request.SetHeader("X-License-Key",..#APIKEY)
+	do request.SetHeader("Content-Type","application/json")
+	do request.SetHeader("Accept","application/json")
+	set request.EntityBody=stream
+	set sc=request.Post( endpoint("path"),debug=2 )
+	do $system.OBJ.DisplayError(sc)
+	do request.HttpResponse.OutputToDevice()
+]]></Implementation>
+</Method>
+</Class>
+</Export>

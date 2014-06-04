@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25" zv="Cache for UNIX (Apple Mac OS X for x86-64) 2014.1 (Build 608U)" ts="2014-06-04 13:12:07">
+<Class name="NewRelic.Operation">
+<Description>
+An operation to send system metrics up into the New Relic platform</Description>
+<Super>Ens.BusinessOperation</Super>
+<TimeChanged>63342,47489.966644</TimeChanged>
+<TimeCreated>63342,47489.966644</TimeCreated>
+
+<Parameter name="ADAPTER">
+<Default>EnsLib.HTTP.OutboundAdapter</Default>
+</Parameter>
+
+<Property name="Adapter">
+<Type>EnsLib.HTTP.OutboundAdapter</Type>
+</Property>
+
+<Parameter name="INVOCATION">
+<Default>Queue</Default>
+</Parameter>
+
+<Method name="SendMetric">
+<FormalSpec>pRequest:Ens.Request,*pResponse:Ens.Response</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+
+	Quit $$$ERROR($$$NotImplemented)
+]]></Implementation>
+</Method>
+
+<Method name="SendAlert">
+<FormalSpec>pRequest:Ens.AlertRequest,*pResponse:Ens.Response</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+
+	Quit $$$ERROR($$$NotImplemented)
+]]></Implementation>
+</Method>
+
+<Method name="SendAlarm">
+<FormalSpec>pRequest:Ens.AlarmRequest,*pResponse:Ens.AlarmResponse</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+
+	Quit $$$ERROR($$$NotImplemented)
+]]></Implementation>
+</Method>
+
+<XData name="MessageMap">
+<Data><![CDATA[<MapItems>
+	<MapItem MessageType="Ens.Request"> 
+		<Method>SendMetric</Method>
+	</MapItem>
+	<MapItem MessageType="Ens.AlertRequest"> 
+		<Method>SendAlert</Method>
+	</MapItem>
+	<MapItem MessageType="Ens.AlarmRequest"> 
+		<Method>SendAlarm</Method>
+	</MapItem>
+</MapItems>
+
+]]></Data>
+</XData>
+</Class>
+</Export>
